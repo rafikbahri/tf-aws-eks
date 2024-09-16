@@ -4,10 +4,16 @@ variable "vpc_id" {
   default     = ""
 }
 
+variable "region" {
+  description = "AWS Region"
+  type        = string
+  default     = "eu-west-3"
+}
+
 variable "cluster_name" {
   description = "Name of the EKS cluster"
   type        = string
-  default     = ""
+  default     = "eks-cluster01"
 }
 
 variable "vpc_cidr" {
