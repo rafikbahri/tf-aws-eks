@@ -16,6 +16,12 @@ variable "cluster_name" {
   default     = "eks-cluster01"
 }
 
+variable "cluster_node_group_name" {
+  description = "description"
+  type        = string
+  default     = "eks-cluster01-node-group"
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
@@ -24,6 +30,12 @@ variable "vpc_cidr" {
 
 variable "public_route_table_id" {
   description = "ID of public route table (associated to the Internet Gateway)"
+  type        = string
+  default     = ""
+}
+
+variable "private_route_table_id" {
+  description = "ID of private route table (associated to the NAT Gateway)"
   type        = string
   default     = ""
 }
