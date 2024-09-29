@@ -5,65 +5,56 @@ provider "aws" {
 
 data "aws_availability_zones" "available" {}
 
-### Begin Public Subnets
-# Public Subnets (for NAT Gateway)
-resource "aws_subnet" "eks_public_subnets" {
-  count             = 3
-  vpc_id            = var.vpc_id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 10)
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-
-  tags = merge({
-    Name = "${var.cluster_name}-public-subnet-${count.index + 1}",
-    type = "public"
-    }, var.tags
-  )
+# For internet access
+module "eks-public-subnets" {
+  count                          = 3
+  source                         = "github.com/rafikbahri/tf-aws-public-subnet"
+  name                           = "${var.cluster_name}-public-subnet-${count.index + 1}"
+  vpc_id                         = var.vpc_id
+  availability_zone              = data.aws_availability_zones.available.names[count.index]
+  cidr_block                     = cidrsubnet(var.vpc_cidr, 8, count.index + 10)
+  map_public_ip_on_launch        = true
+  has_internet_access            = true
+  public_internet_route_table_id = var.public_route_table_id
+  tags = {
+    group = "eks-cluster"
+  }
 }
 
-resource "aws_route_table_association" "public_rta" {
-  count          = 3
-  subnet_id      = aws_subnet.eks_public_subnets[count.index].id
-  route_table_id = var.public_route_table_id # to IGW
+# Private
+module "eks-private-subnets" {
+  count               = 3
+  source              = "github.com/rafikbahri/tf-aws-private-subnet"
+  name                = "${var.cluster_name}-private-subnet-${count.index + 1}"
+  vpc_id              = var.vpc_id
+  availability_zone   = data.aws_availability_zones.available.names[count.index]
+  cidr_block          = cidrsubnet(var.vpc_cidr, 8, count.index + 1)
+  public_subnet_id    = module.eks-public-subnets[count.index].subnet_id
+  has_internet_access = true
+  tags = {
+    group = "eks-cluster"
+  }
 }
 
-### End Public Subnets
-
-### Begin Private Subnets
-### Private subnet for restricted access to cluster
-resource "aws_subnet" "eks_private_subnets" {
-  count                   = 3
-  vpc_id                  = var.vpc_id
-  cidr_block              = cidrsubnet(var.vpc_cidr, 8, count.index + 1)
-  availability_zone       = data.aws_availability_zones.available.names[count.index]
-  map_public_ip_on_launch = false
-  tags = merge({
-    Name                                        = "${var.cluster_name}-private-subnet-${count.index + 1}",
-    type                                        = "private",
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared",
-    "kubernetes.io/role/internal-elb"           = 1
-    }, var.tags
-  )
-}
-
-# Route Table Association for Private Subnets
-resource "aws_route_table_association" "private_rta" {
-  count          = 3
-  subnet_id      = aws_subnet.eks_private_subnets[count.index].id
-  route_table_id = var.private_route_table_id # To NAT Gateway
-}
-### End Private Subnets
-
-# Security Group for EKS
-resource "aws_security_group" "eks_sg" {
-  name        = "eks-cluster-sg"
+module "sg-eks" {
+  source      = "github.com/rafikbahri/tf-aws-sg"
+  name        = "sg_eks"
   description = "Security group for EKS cluster"
   vpc_id      = var.vpc_id
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  egress_rules = [
+    {
+      description = "Allow SSM traffic"
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_blocks = ["0.0.0.0/0"]
+      # Required attribues: https://stackoverflow.com/a/69080432/5684155
+      ipv6_cidr_blocks = []
+      prefix_list_ids  = []
+      security_groups  = []
+      self             = false
+    }
+  ]
 
   tags = {
     Name = "eks-cluster-sg"
@@ -76,10 +67,10 @@ resource "aws_eks_cluster" "eks_cluster" {
   role_arn = aws_iam_role.eks_cluster_role.arn
 
   vpc_config {
-    subnet_ids              = aws_subnet.eks_private_subnets[*].id
+    subnet_ids              = module.eks-private-subnets[*].subnet_id
     endpoint_private_access = true
     endpoint_public_access  = false
-    security_group_ids      = [aws_security_group.eks_sg.id]
+    security_group_ids      = [module.sg-eks.sg_id]
   }
 
   depends_on = [
@@ -93,7 +84,7 @@ resource "aws_eks_node_group" "eks_nodes" {
   cluster_name    = var.cluster_name
   node_group_name = var.cluster_node_group_name
   node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = aws_subnet.eks_private_subnets[*].id
+  subnet_ids      = module.eks-private-subnets[*].subnet_id
 
   scaling_config {
     desired_size = 3
@@ -101,7 +92,7 @@ resource "aws_eks_node_group" "eks_nodes" {
     min_size     = 1
   }
 
-  instance_types = ["t3.medium"] # Adjust instance type as needed
+  instance_types = ["t2.micro"]
 
   depends_on = [
     aws_iam_role_policy_attachment.eks_worker_node_policy,
