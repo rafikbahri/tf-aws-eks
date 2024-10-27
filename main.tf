@@ -7,7 +7,7 @@ data "aws_availability_zones" "available" {}
 
 # For internet access
 module "eks-public-subnets" {
-  count                          = 3
+  count                          = var.create_cluster ? 3 : 0
   source                         = "github.com/rafikbahri/tf-aws-public-subnet"
   name                           = "${var.cluster_name}-public-subnet-${count.index + 1}"
   vpc_id                         = var.vpc_id
@@ -23,7 +23,7 @@ module "eks-public-subnets" {
 
 # Private
 module "eks-private-subnets" {
-  count               = 3
+  count               = var.create_cluster ? 3 : 0
   source              = "github.com/rafikbahri/tf-aws-private-subnet"
   name                = "${var.cluster_name}-private-subnet-${count.index + 1}"
   vpc_id              = var.vpc_id
@@ -63,6 +63,7 @@ module "sg-eks" {
 
 # EKS Cluster
 resource "aws_eks_cluster" "eks_cluster" {
+  count    = var.create_cluster ? 1 : 0
   name     = var.cluster_name
   role_arn = aws_iam_role.eks_cluster_role.arn
 
@@ -81,6 +82,7 @@ resource "aws_eks_cluster" "eks_cluster" {
 
 # EKS Node Group
 resource "aws_eks_node_group" "eks_nodes" {
+  count           = var.create_cluster ? 1 : 0
   cluster_name    = var.cluster_name
   node_group_name = var.cluster_node_group_name
   node_role_arn   = aws_iam_role.eks_node_role.arn

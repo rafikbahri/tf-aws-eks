@@ -10,6 +10,12 @@ variable "region" {
   default     = "eu-west-3"
 }
 
+variable "create_cluster" {
+  type        = bool
+  default     = false
+  description = "Wether to create the cluster or not. Useful for test purposes."
+}
+
 variable "cluster_name" {
   description = "Name of the EKS cluster"
   type        = string
