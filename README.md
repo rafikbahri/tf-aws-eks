@@ -41,6 +41,7 @@
 |------|-------------|------|---------|:--------:|
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the EKS cluster | `string` | `"eks-cluster01"` | no |
 | <a name="input_cluster_node_group_name"></a> [cluster\_node\_group\_name](#input\_cluster\_node\_group\_name) | description | `string` | `"eks-cluster01-node-group"` | no |
+| <a name="input_create_cluster"></a> [create\_cluster](#input\_create\_cluster) | Wether to create the cluster or not. Useful for test purposes. | `bool` | `false` | no |
 | <a name="input_private_route_table_id"></a> [private\_route\_table\_id](#input\_private\_route\_table\_id) | ID of private route table (associated to the NAT Gateway) | `string` | `""` | no |
 | <a name="input_public_route_table_id"></a> [public\_route\_table\_id](#input\_public\_route\_table\_id) | ID of public route table (associated to the Internet Gateway) | `string` | `""` | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS Region | `string` | `"eu-west-3"` | no |
